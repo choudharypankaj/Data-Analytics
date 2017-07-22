@@ -1,0 +1,438 @@
+---
+title: "Project: Final Report"
+author: "Saket,Pankaj,Devendra "
+date: "March 2, 2017"
+output:
+  word_document: default
+  html_document: default
+---
+```{r}
+knitr::opts_chunk$set(echo = F,
+results='markup',
+warning = F,
+message =F)
+```
+Introduction:
+Using the Ames Housing dataset that was compiled by Dean De Cock,our end goal is to choose five strong predictors that can aid in predicting the accurate sales price of every home with the help of regression techniques taught in the class.
+ 
+The complete data has been split into train and tempTrainSet dataset. The train dataset consists of 1460 observations with 81 variables whereas the tempTrainSet dataset consists of 1459 observations with 80 variables. The train dataset is used for building a robust and efficient model to predict the SalePrice value and the tempTrainSet dataset will be used to predict the SalePrice in order to see the fit and performance of the built model.
+
+# Initial Setup
+
+```{r setup, echo=FALSE}
+ library(MASS)
+library(arm)
+library(lattice)
+library(psych)
+library(caret)
+library(mice)
+library(rpart)
+#library(rpart.plot)
+library(knitr)
+#library(RWeka)
+library(rminer)
+library(matrixStats)
+
+train<-read.csv("train.csv",stringsAsFactors = T)
+test<- read.csv("test.csv",stringsAsFactors = T)
+
+```
+The dataset consists of 80 predictors variables.After analyzing the data it was noted for the variables Alley, PoolQC, Fence, MiscFeature, BsmtQual, BsmtCond, BsmtExposure, BsmtFinType1, FireplaceQu, GarageType, GarageFinish, GarageQual and GarageCond NA represents a type of category. These NA values were changed to "zero" so that the system does not consider them as NA values. Two category variables - MasVnrType and Electrical and three continuous variables - LotFrontage, MasVnrArea and GarageYrBlt were found with actually missing data values tagged as NAs. The number of rows with NA values of the categorical variables are 9 rows in total and they were tagged to the value "zero" and later were assigned a level. The NA values for the continuous variables were replaced by their mean values.
+
+Traing Data set cleaning and NA handling:
+
+```{r train,echo=FALSE}
+#(train)
+train<- train[-1]
+#(prop.table(table(train$Alley)))
+train$Alley<- as.character(train$Alley)
+train$Alley[is.na(train$Alley)]<-"zero"
+train$Alley <-as.factor(train$Alley)
+#(prop.table(table(train$Alley)))
+
+#train$Alley
+##$BsmtQual
+train$BsmtQual<- as.character(train$BsmtQual)
+train$BsmtQual[is.na(train$BsmtQual)]<-"zero"
+train$BsmtQual <-as.factor(train$BsmtQual)
+
+#f$BsmtCond
+train$BsmtCond<- as.character(train$BsmtCond)
+train$BsmtCond[is.na(train$BsmtCond)]<-"zero"
+train$BsmtCond <-as.factor(train$BsmtCond)
+
+
+#train$BsmtExposure
+train$BsmtExposure<- as.character(train$BsmtExposure)
+train$BsmtExposure[is.na(train$BsmtExposure)]<-"zero"
+train$BsmtExposure <-as.factor(train$BsmtExposure)
+#str(train)
+
+#(is.na(train$BsmtFinType1))
+train$BsmtFinType1<- as.character(train$BsmtFinType1)
+train$BsmtFinType1[is.na(train$BsmtFinType1)]<-"zero"
+train$BsmtFinType1 <-as.factor(train$BsmtFinType1)
+
+
+#train$BsmtFinType2
+train$BsmtFinType2<- as.character(train$BsmtFinType2)
+train$BsmtFinType2[is.na(train$BsmtFinType2)]<-"zero"
+train$BsmtFinType2 <-as.factor(train$BsmtFinType2)
+
+
+#train$LotFrontage
+train$LotFrontage[is.na(train$LotFrontage)]<-mean(train$LotFrontage,na.rm = T)
+
+#train$FireplaceQu
+train$FireplaceQu<- as.character(train$FireplaceQu)
+train$FireplaceQu[is.na(train$FireplaceQu)]<-"zero"
+train$FireplaceQu <-as.factor(train$FireplaceQu)
+
+#train$GarageType
+train$GarageType<- as.character(train$GarageType)
+train$GarageType[is.na(train$GarageType)]<-"zero"
+train$GarageType <-as.factor(train$GarageType)
+
+train$GarageYrBlt<-train$YearBuilt
+
+#train$GarageFinish
+train$GarageFinish<- as.character(train$GarageFinish)
+train$GarageFinish[is.na(train$GarageFinish)]<-"zero"
+train$GarageFinish <-as.factor(train$GarageFinish)
+
+#train$GarageQual
+train$GarageQual<- as.character(train$GarageQual)
+train$GarageQual[is.na(train$GarageQual)]<-"zero"
+train$GarageQual <-as.factor(train$GarageQual)
+
+#train$GarageCond
+train$GarageCond<- as.character(train$GarageCond)
+train$GarageCond[is.na(train$GarageCond)]<-"zero"
+train$GarageCond <-as.factor(train$GarageCond)
+
+#train$PoolQC
+train$PoolQC<- as.character(train$PoolQC)
+train$PoolQC[is.na(train$PoolQC)]<-"zero"
+train$PoolQC <-as.factor(train$PoolQC)
+
+#train$Fence
+train$Fence<- as.character(train$Fence)
+train$Fence[is.na(train$Fence)]<-"zero"
+train$Fence <-as.factor(train$Fence)
+
+#train$MiscFeature
+train$MiscFeature<- as.character(train$MiscFeature)
+train$MiscFeature[is.na(train$MiscFeature)]<-"zero"
+train$MiscFeature <-as.factor(train$MiscFeature)
+
+
+#train$BsmtQual
+train$BsmtQual<- as.character(train$BsmtQual)
+train$BsmtQual[is.na(train$BsmtQual)]<-"zero"
+train$BsmtQual <-as.factor(train$BsmtQual)
+
+train$YrSold <- as.factor(train$YrSold)
+train$MoSold <- as.factor(train$MoSold)
+
+
+
+#str(train)
+ 
+#train$log_salePrice<- NULL
+#lapply(train,levels)
+rmse <- function(yhat, y) {
+  sqrt((mean((yhat - y)^2)))
+}
+```
+Test Data set cleaning and NA handling:
+
+```{r test,echo=FALSE}
+#str(test)
+test<- test[-1]
+#(prop.table(table(test$Alley)))
+test$Alley<- as.character(test$Alley)
+test$Alley[is.na(test$Alley)]<-"zero"
+test$Alley <-as.factor(test$Alley)
+#(prop.table(table(test$Alley)))
+
+#test$Alley
+##$BsmtQual
+test$BsmtQual<- as.character(test$BsmtQual)
+test$BsmtQual[is.na(test$BsmtQual)]<-"zero"
+test$BsmtQual <-as.factor(test$BsmtQual)
+
+#f$BsmtCond
+test$BsmtCond<- as.character(test$BsmtCond)
+test$BsmtCond[is.na(test$BsmtCond)]<-"zero"
+test$BsmtCond <-as.factor(test$BsmtCond)
+
+
+#test$BsmtExposure
+test$BsmtExposure<- as.character(test$BsmtExposure)
+test$BsmtExposure[is.na(test$BsmtExposure)]<-"zero"
+test$BsmtExposure <-as.factor(test$BsmtExposure)
+#str(test)
+
+#(is.na(test$BsmtFinType1))
+test$BsmtFinType1<- as.character(test$BsmtFinType1)
+test$BsmtFinType1[is.na(test$BsmtFinType1)]<-"zero"
+test$BsmtFinType1 <-as.factor(test$BsmtFinType1)
+
+
+#test$BsmtFinType2
+test$BsmtFinType2<- as.character(test$BsmtFinType2)
+test$BsmtFinType2[is.na(test$BsmtFinType2)]<-"zero"
+test$BsmtFinType2 <-as.factor(test$BsmtFinType2)
+
+
+#test$LotFrontage
+test$LotFrontage[is.na(test$LotFrontage)]<-mean(test$LotFrontage,na.rm = T)
+
+#test$FireplaceQu
+test$FireplaceQu<- as.character(test$FireplaceQu)
+test$FireplaceQu[is.na(test$FireplaceQu)]<-"zero"
+test$FireplaceQu <-as.factor(test$FireplaceQu)
+
+#test$GarageType
+test$GarageType<- as.character(test$GarageType)
+test$GarageType[is.na(test$GarageType)]<-"zero"
+test$GarageType <-as.factor(test$GarageType)
+
+test$GarageYrBlt<-test$YearBuilt
+
+#test$GarageFinish
+test$GarageFinish<- as.character(test$GarageFinish)
+test$GarageFinish[is.na(test$GarageFinish)]<-"zero"
+test$GarageFinish <-as.factor(test$GarageFinish)
+
+#test$GarageQual
+test$GarageQual<- as.character(test$GarageQual)
+test$GarageQual[is.na(test$GarageQual)]<-"zero"
+test$GarageQual <-as.factor(test$GarageQual)
+
+#test$GarageCond
+test$GarageCond<- as.character(test$GarageCond)
+test$GarageCond[is.na(test$GarageCond)]<-"zero"
+test$GarageCond <-as.factor(test$GarageCond)
+
+#test$PoolQC
+test$PoolQC<- as.character(test$PoolQC)
+test$PoolQC[is.na(test$PoolQC)]<-"zero"
+test$PoolQC <-as.factor(test$PoolQC)
+
+#test$Fence
+test$Fence<- as.character(test$Fence)
+test$Fence[is.na(test$Fence)]<-"zero"
+test$Fence <-as.factor(test$Fence)
+
+#test$MiscFeature
+test$MiscFeature<- as.character(test$MiscFeature)
+test$MiscFeature[is.na(test$MiscFeature)]<-"zero"
+test$MiscFeature <-as.factor(test$MiscFeature)
+
+
+#test$BsmtQual
+test$BsmtQual<- as.character(test$BsmtQual)
+test$BsmtQual[is.na(test$BsmtQual)]<-"zero"
+test$BsmtQual <-as.factor(test$BsmtQual)
+
+test$YrSold <- as.factor(test$YrSold)
+test$MoSold <- as.factor(test$MoSold)
+```
+MICE imputation for Missing values in test and train data sets:
+
+MICE imputation method was used to impute the missing values. Hence, the above method was used to remove the NAs from the data and clean it.
+
+
+```{r model1,echo=FALSE}
+library(mice)
+#train[!complete.cases(train),]
+
+data_imp<-mice(train, m=1, method='cart', printFlag=FALSE)
+#data_imp
+data_imputed<-complete(data_imp, action = 1, include = FALSE)
+#summary(data_imputed)
+
+#library(mice)
+#test[!complete.cases(test),]
+
+data_imp_test<-mice(test, m=1, method='cart', printFlag=FALSE)
+#data_imp_test
+test_data_imputed<-complete(data_imp_test, action = 1, include = FALSE)
+```
+```{r model2,echo=FALSE}
+data_imputed$X1stFlrSF_log<- log(data_imputed$X1stFlrSF)
+test_data_imputed$X1stFlrSF_log<- log(test_data_imputed$X1stFlrSF)
+#str(data_imputed)
+#str(test_data_imputed)
+```
+```{r model3,echo=FALSE}
+write.csv(data_imputed, file = "data_imputed_train.csv")
+data_imputed<-read.csv("data_imputed_train.csv",stringsAsFactors = T)
+
+#str(data_imputed)
+data_imputed<-data_imputed[,-1]
+
+write.csv(test_data_imputed, file = "data_imputed_test.csv")
+test_data_imputed<-read.csv("data_imputed_test.csv",stringsAsFactors = T)
+set.seed(100)
+inTrain <- createDataPartition(y=data_imputed$SalePrice, p = 0.70, list=FALSE)
+train_target <- data_imputed[inTrain,80]
+test_target <- data_imputed[-inTrain,80]
+train_input <- data_imputed[inTrain,-80]
+test_input <- data_imputed[-inTrain,-80]
+```
+
+Statistical Model
+
+Different statistical models can be used to build a model on train data. We applied different statistical packages like linear regression, knn, regression tree, m5p model in R-weka and cross-validation techniques. 
+Corelation,beta coeff, p-value,variable importance, pair.panel,step AIC
+We came to conclusion that the best 13 predictors are: -
+1)	First Floor square feet area 
+2)	Second Floor square feet area
+3)	Neighborhood
+4)	Overall Quality
+5)	Roof Material
+6)  MSSubclass
+7)  Overall Condition
+8)  Lot Area
+9)  Basement Quality
+10) External Quality
+11) Basement Finished Area
+12) Garage Cars
+13) Kitchen Quality
+
+We made the decision of choosing the best 5 predictors on the basis of: - 
+
+1)	Correlation between variables and the correlation between predictor variable and the predicted variable (salesPrice)
+2)	 Beta coefficients of each predictor variable. It shows the direct relationship of predictor variable and the predicted variable. It tells the how strong a predictor variable is while predicting the predicted variable.
+3)	P-value tells us the significance
+4)	Variable Importance tells us the importance of each variable in a model
+5)	Pair Panel tells the correlation between variables
+6)	AIC values to determine the models
+
+Final_model Construction
+```{r model4,echo=FALSE}
+metrics_list <- c("MAE","RMSE","MAPE","RMSPE","RAE","RRSE","R2")
+model_5<-lm(formula = log(train_target) ~  MSSubClass+OverallCond+  LotArea+ 
+              (OverallQual) +  X1stFlrSF+ Neighborhood+BsmtQual+
+              RoofMatl +   ExterQual +     BsmtFinSF1+
+                X2ndFlrSF +  GarageCars+
+               KitchenQual  , data = train_input)
+
+cor = cor(data_imputed[c("MSSubClass","LotArea","OverallQual","OverallCond",
+             "BsmtFinSF1","BsmtQual","X2ndFlrSF","X1stFlrSF","Neighborhood","KitchenQual","RoofMatl",
+                   "GarageCars","SalePrice")])
+corrplot(newdatacor, method = "number")
+
+#Insample R2 value: 0.8874
+#Insample RMSE: 28740.82
+
+#summary(standardize(model_5))
+
+rmse1 <- function(yhat, y) {
+  sqrt((mean((yhat - (y))^2)))
+}
+
+round(rmse((train_target),exp(predict(standardize(model_5)))),digits = 2)
+
+
+insample_pred <- exp(predict(model_5, train_input))
+
+mmetric((train_target), (insample_pred), metrics_list)
+outsample_pred<-exp(predict(model_5,test_input))
+mmetric(test_target,outsample_pred,metrics_list)
+outsample_pred1<-exp(predict(model_5, test_data_imputed))
+#mmetric(test_data_imputed$SalePrice,outsample_pred1,metrics_list)
+write.csv(outsample_pred1, file = "lm_output_4.csv")
+
+
+
+```
+Model Performance: - 
+We divided the traindata set into 70% and 30% to see the performance on new test dataset.We used linear model with above mentioned variables and got following values on training data set:
+In-sample values:
+ R2 value: 0.8874
+ RMSE: 28740.82
+
+Out-sample values:
+ R2 value: 0.92
+ RMSE: 21936.24
+ 
+cross validation Performance
+```{r cross validation-model,echo=FALSE}
+data_imputed_cv<-data_imputed[c(-121,-272,-1276,-1299),]
+df <- data_imputed_cv
+target <- 80
+nFolds <- 5
+seedVal <- 500
+prediction_method <- lm
+# This is the same as above: assign("prediction_method", lm)
+metrics_list <- c("MAE","RMSE","MAPE","RMSPE","RAE","RRSE","R2")
+cv_function <- function(df, target, nFolds, seedVal, prediction_method, metrics_list)
+{
+  # create folds
+  set.seed(seedVal)
+  folds = createFolds(df[,target],nFolds) 
+  # perform cross validation
+  cv_results <- lapply(folds, function(x)
+  { 
+    test_target <- df[x,target]
+    test_input  <- df[x,-target]
+
+    train_target <- df[-x,target]
+    train_input <- df[-x,-target]
+
+    prediction_model <- prediction_method(formula = log(train_target) ~  MSSubClass+OverallCond+  LotArea+ 
+              (OverallQual) +  X1stFlrSF+ Neighborhood+
+              RoofMatl +   ExterQual + BsmtQual +    BsmtFinSF1+
+                X2ndFlrSF +  GarageCars+
+               KitchenQual  , data = train_input)
+    pred<- exp(predict(prediction_model,test_input))
+    return(mmetric(test_target,pred,metrics_list))
+  })
+  # generate means and sds and show cv results, means and sds using kable
+  cv_results_m <- as.matrix(as.data.frame(cv_results))
+  cv_mean<- as.matrix(rowMeans(cv_results_m))
+  cv_sd <- as.matrix(rowSds(cv_results_m))
+  colnames(cv_mean) <- "Mean"
+  colnames(cv_sd) <- "Sd"
+  cv_all <- cbind(cv_results_m, cv_mean, cv_sd)
+  kable(t(cv_all),digits=2)
+}
+
+CV_Results <- cv_function(df, target, 5, seedVal, prediction_method, metrics_list)
+
+```
+Cross Validation Result
+
+
+[1] "|      |      MAE|     RMSE|  MAPE| RMSPE|   RAE|  RRSE|   R2|"
+[2] "|:-----|--------:|--------:|-----:|-----:|-----:|-----:|----:|"
+[3] "|Fold1 | 14288.29| 22633.60|  8.14|  1.15| 25.29| 27.61| 0.92|"
+[4] "|Fold2 | 16020.06| 23888.24|  9.46|  1.33| 29.35| 33.60| 0.89|"
+[5] "|Fold3 | 16987.19| 24977.47| 10.91|  1.96| 25.42| 26.13| 0.93|"
+[6] "|Fold4 | 15376.98| 21298.36|  8.84|  1.22| 27.44| 28.68| 0.92|"
+[7] "|Fold5 | 18886.73| 46855.36| 11.58|  2.68| 35.03| 65.39| 0.66|"
+[8] "|Mean  | 16311.85| 27930.60|  9.78|  1.67| 28.51| 36.28| 0.86|"
+[9] "|Sd    |  1742.13| 10668.33|  1.43|  0.65|  4.01| 16.51| 0.12| 
+
+Result:
+The final model uses following variables to predict the house prices in Ames:
+
+1)	First Floor square feet area   [First Floor square feet]
+2)	Second Floor square feet area  [Second Floor square feet]
+3)	Neighborhood                   [Physical locations within Ames city limits]
+4)	Overall Quality                [Overall material and finish quality]
+5)	Roof Material                  [Roof material]
+6)  MSSubclass                     [The building class]
+7)  Overall Condition              [Overall condition rating]
+8)  Lot Area                       [Lot size in square feet]
+9)  Basement Quality               [Height of the basement]
+10) External Quality               [Exterior material quality]
+11) Basement Finished Area         [Quality of basement finished area]
+12) Garage Cars                    [Size of garage in car capacity]
+13) Kitchen Quality                [Kitchen quality]
+
+Kaggle Score obtained: - 0.136
+
